@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <stdio.h>
 
+// These "cint" functions are provided to allow computation with large numbers (especially greater than the default limit)
+
 // memory is supposed provided by the system, allocations are passed to "assert".
 // cint use "computation sheets" instead of global vars.
 
@@ -199,25 +201,28 @@ static void cint_dup(cint *to, const cint *from) {
 
 static void cint_rescale(cint *num, const size_t bits) {
 	// rarely tested, it should allow to resize a number transparently.
-	size_t curr_size = num->end - num->mem ;
-	size_t new_size = 1 + bits / cint_exponent ;
-	new_size = new_size + 8 - new_size % 8 ;
-	if (curr_size < new_size)
-		cint_erase(num), curr_size = 0;
-	num->mem = realloc(num->mem, new_size * sizeof(h_cint_t));
-	assert(num->mem);
-	if (num->size < new_size)
+	size_t new_size = 1 + bits / cint_exponent;
+	new_size = new_size + 8 - new_size % 8;
+	const size_t curr_length = num->end - num->mem;
+	if (num->size < new_size) {
+		num->mem = realloc(num->mem, new_size * sizeof(h_cint_t));
+		assert(num->mem);
 		memset(num->mem + num->size, 0, (new_size - num->size) * sizeof(h_cint_t));
-	num->end = num->mem + curr_size ;
-	num->size = new_size ;
+		num->end = num->mem + curr_length;
+		num->size = new_size;
+	} else if (curr_length >= new_size) {
+		cint_erase(num); // can't keep the number when reducing its size under the minimal size it needs.
+		num->end = num->mem = realloc(num->mem, (num->size = new_size) * sizeof(h_cint_t));
+		assert(num->mem); // realloc can fail on trimming.
+	}
 }
 
 static inline cint * h_cint_tmp(cint_sheet * sheet, const int id, const cint * least){
 	// request at least the double of "least" to allow performing multiplication then modulo...
-	size_t required = (1 + least->end - least->mem) << 1 ;
-	if (sheet->temp[id].size <= required) {
-		required = (1 + ((required * cint_exponent) >> 10)) << 10 ;
-		cint_rescale(&sheet->temp[id], required);
+	const size_t needed_size = (1 + least->end - least->mem) << 1 ;
+	if (sheet->temp[id].size < needed_size) {
+		const size_t needed_bits = (1 + ((needed_size * cint_exponent) >> 10)) << 10 ;
+		cint_rescale(&sheet->temp[id], needed_bits);
 	}
 	return &sheet->temp[id] ;
 }
