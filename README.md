@@ -28,7 +28,7 @@ This software implementation would have been impossible without "FLINT: Fast Lib
 If you don't know how to get an executable, try to follow this procedure :
 
 - Ubuntu provide you a C compiler by the command `sudo apt install build-essential`
-- On Windows you can install [MinGW](https://winlibs.com/), it will, like as Ubuntu, provide you a C compiler
+- On Windows you can install [MinGW](https://winlibs.com/), it will, like as Ubuntu, provide you a **GCC** compiler
 
 With **Terminal** on Ubuntu or **Powershell** on Windows you can go to the downloaded directory ([cd](https://en.wikipedia.org/wiki/Cd_(command)) command) :
 
@@ -38,7 +38,12 @@ The compilation took a few seconds, you can use the software :
 
 - Execute `./qs 1389767379868103466550952369852270458062404848980444227682523391`
 
-The software will show you its answer.
+The software will quickly show you the answer :
+
+```
+C:\qs.exe 1389767379868103466550952369852270458062404848980444227682523391
+(1062949 ^ 2) * 19221289015581393571881329 * 63993335829453341906998279
+```
 					
 # Options
 
