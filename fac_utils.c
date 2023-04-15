@@ -284,7 +284,7 @@ qs_sm tonelli_shanks(const qs_sm n, const qs_sm mod) {
 					for (h = 0, g = 0; h < e; h++) {
 						d = power_modulo(b, g, mod);
 						d = multiplication_modulo(d, f, mod);
-						d = power_modulo(d, 1 << (e - h - 1), mod);
+						d = power_modulo(d, (uint64_t)1 << (e - h - 1), mod);
 						if (d == mod - 1)
 							g += 1 << h;
 					}

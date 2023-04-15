@@ -1,3 +1,11 @@
+#ifdef _MSC_VER
+
+#pragma warning(disable : 4146)	// C4146: unary minus operator applied to unsigned type, result still unsigned
+#define __attribute__(x)        // nop
+#define strdup(x) _strdup(x)    // non-POSIX
+
+#endif
+
 #include "avl.c"            // the trees.
 #include "cint.c"           // the integers.
 #include "fac_headers.h"    // factor headers.

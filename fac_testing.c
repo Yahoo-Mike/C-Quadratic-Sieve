@@ -1,5 +1,60 @@
 #include <time.h>
+
+#ifdef _MSC_VER
+// adapted from: https://stackoverflow.com/a/1677744/13546494
+
+#include <windows.h>
+#define DELTA_EPOCH_IN_MICROSECS  116444736000000000Ui64 // CORRECT
+
+struct timezone
+{
+    int  tz_minuteswest; // minutes W of Greenwich
+    int  tz_dsttime;     // type of dst correction
+};
+
+int gettimeofday(struct timeval* tv, struct timezone* tz)
+{
+    FILETIME ft;
+    unsigned __int64 tmpres = 0;
+    static int tzflag;
+
+    if (NULL != tv)
+    {
+        GetSystemTimeAsFileTime(&ft);
+
+        tmpres |= ft.dwHighDateTime;
+        tmpres <<= 32;
+        tmpres |= ft.dwLowDateTime;
+
+        //converting file time to unix epoch
+        tmpres /= 10;  //convert into microseconds
+        tmpres -= DELTA_EPOCH_IN_MICROSECS;
+        tv->tv_sec = (long)(tmpres / 1000000UL);
+        tv->tv_usec = (long)(tmpres % 1000000UL);
+    }
+
+    if (NULL != tz)
+    {
+        if (!tzflag)
+        {
+            _tzset();
+            tzflag++;
+        }
+        long tzone;
+        _get_timezone(&tzone);
+        tz->tz_minuteswest = tzone / 60;
+
+        int dlight;
+        _get_daylight(&dlight);
+        tz->tz_dsttime = dlight;
+    }
+
+    return 0;
+}
+#else
 #include <sys/time.h>
+#endif
+
 // Basic ~ 100 lines factorization tester, use test=1 or test=160 to execute the tests.
 
 static inline void fac_mini_tests(fac_params *m) {

@@ -4,8 +4,14 @@
 # manual DEVELOPMENT compilation is done with "gcc -Wall -pedantic -O0 main.c -o qs"
 # manual PRODUCTION compilation is done with "gcc -Wall -pedantic -O3 main.c -o qs"
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 project(qs C)
 set(CMAKE_C_STANDARD 99)
+
+if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+set (CMAKE_C_FLAGS "/W3 /Zi /O2 -D_CRT_SECURE_NO_WARNINGS")
+else()
 set (CMAKE_C_FLAGS "-Wall -Wextra -pedantic -g -O3 -std=c99")
+endif()
+
 add_executable(qs main.c)

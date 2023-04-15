@@ -193,8 +193,12 @@ static inline qs_sm preparation_part_3_michel(qs_sheet *qs) {
 	qs_sm mul[] = {1, 2, 3, 4, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43}, n_mul = (qs_sm)(sizeof(mul) / sizeof(qs_sm));
 	cint *N = qs->caller->vars, *PRIME = N + 1, *Q = N + 2, *R = N + 3;
 	qs_sm i, j;
-	double score[n_mul];
-	const qs_sm n_mod_8 = (qs_sm) (*N->mem % 8);
+#ifdef _MSC_VER
+    double score[sizeof(mul) / sizeof(qs_sm)];
+#else
+    double score[n_mul];
+#endif
+    const qs_sm n_mod_8 = (qs_sm) (*N->mem % 8);
 	for (i = j = 0; i < n_mul; ++i) {
 		const qs_sm x = n_mod_8 * mul[i] % 8;
 		if (x == 1 || x == 7) {

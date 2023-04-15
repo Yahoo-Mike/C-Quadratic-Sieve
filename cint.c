@@ -17,8 +17,13 @@
 
 typedef int64_t h_cint_t;
 
+#ifdef _MSC_VER
+#define cint_exponent   (h_cint_t)(4 * sizeof(h_cint_t) - 1)
+#define cint_base       (h_cint_t)((h_cint_t)1 << cint_exponent)
+#else
 static const h_cint_t cint_exponent = 4 * sizeof(h_cint_t) - 1;
 static const h_cint_t cint_base = (h_cint_t)1 << cint_exponent;
+#endif
 static const h_cint_t cint_mask = cint_base - 1;
 static const char *cint_alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -161,7 +166,7 @@ static void cint_reinit_by_double(cint *num, const double value) {
 	memcpy(&memory, &value, sizeof(value));
 	uint64_t ex = (memory << 1 >> 53) - 1023, m_1 = 1ULL << 52;
 	if (ex < 1024) {
-		h_cint_t m_2 = 1 << ex % cint_exponent;
+		h_cint_t m_2 = (uint64_t)1 << ex % cint_exponent;
 		num->nat *= (value > 0) - (value < 0);
 		num->end = 1 + num->mem + ex / cint_exponent;
 		h_cint_t *n = num->end;
@@ -175,7 +180,7 @@ static void cint_reinit_by_double(cint *num, const double value) {
 
 __attribute__((unused)) static double cint_to_double(const cint *num) {
 	// sometimes tested, it worked.
-	uint64_t memory = cint_count_bits(num) + 1022, m_write = 1ULL << 52, m_read = 1 << memory % cint_exponent;
+	uint64_t memory = cint_count_bits(num) + 1022, m_write = 1ULL << 52, m_read = (uint64_t)1 << memory % cint_exponent;
 	double res = 0;
 	memory <<= 52;
 	for (h_cint_t *n = num->end; --n >= num->mem; m_read = 1LL << cint_exponent)
@@ -521,7 +526,7 @@ static unsigned cint_remove(cint_sheet * sheet, cint *N, const cint *F) {
 			for (cint *tmp; cint_div(sheet, N, F, A, B), B->mem == B->end; tmp = N, N = A, A = tmp, ++res);
 			if (res & 1) cint_dup(A, N);
 	}
-	return res ;
+	return (unsigned)res;
 }
 
 static void cint_sqrt(cint_sheet * sheet, const cint *num, cint *res, cint *rem) {
@@ -610,12 +615,12 @@ static void cint_nth_root_remainder(cint_sheet * sheet, const cint *num, const u
 static void cint_random_bits(cint *num, size_t bits) {
 	// provide a random number with exactly the number of bits asked.
 	// Normally no one bit more, no one less.
-	int i = 0;
+	uint64_t i = 0;
 	cint_erase(num);
 	for (; bits; ++num->end)
 		for (i = 0; bits && i < cint_exponent; ++i, --bits)
 			*num->end = *num->end << 1 | (rand() & 1);
-	if (i) *(num->end - 1) |= 1 << (i - 1);
+	if (i) *(num->end - 1) |= (uint64_t)1 << (i - 1);
 }
 
 static void cint_modular_inverse(cint_sheet * sheet, const cint * lhs, const cint * rhs, cint * res){
