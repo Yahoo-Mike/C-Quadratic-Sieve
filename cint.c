@@ -57,7 +57,7 @@ __attribute__((unused)) static inline void cint_negate(cint * N){
 	N->nat *= 1 - ((N->mem != N->end) << 1) ;
 }
 
-void cint_clear_sheet(cint_sheet *sheet) {
+static void cint_clear_sheet(cint_sheet *sheet) {
 	for (size_t i = 0; i < 10; ++i)
 		free(sheet->temp[i].mem);
 	free(sheet);
