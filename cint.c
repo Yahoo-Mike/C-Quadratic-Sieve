@@ -34,6 +34,8 @@ typedef struct {
 	size_t size;
 } cint;
 
+#define cint_is_negative(X) (X->nat == -1)
+
 typedef struct {
 	size_t immediate_state ;
 	cint temp[10];
@@ -107,6 +109,12 @@ static void cint_init(cint * num, size_t bits, long long int value) {
 	assert(num->mem);
 	if((num->nat = 1 - ((value < 0) << 1)) < 0) value = -value;
 	for (; value; *num->end = (h_cint_t)(value % cint_base), value /= cint_base, ++num->end);
+}
+
+static inline void cint_free(cint *num) {
+    if (num->mem)
+        free(num->mem);
+    num->mem = num->end = NULL;
 }
 
 static inline void cint_erase(cint * num) {

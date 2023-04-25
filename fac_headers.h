@@ -7,7 +7,6 @@
 // Quadratic sieve integers (it has sometimes been tested with signed integers too).
 typedef uint32_t qs_sm; // small size, like a factor base prime number (32-bit)
 typedef uint64_t qs_md; // medium size, like a factor base prime number squared (64-bit)
-typedef int64_t qs_tmp; // signed type to perform intermediates computations.
 
 // The factorization manager (calls the quadratic sieve)
 
@@ -105,13 +104,13 @@ typedef struct {
 		cint B;
 		cint C;
 		cint D ;
-		qs_sm d_bits ;
+        cint gray_max;
+        qs_sm d_bits ;
 		qs_sm offset ;
 		qs_sm min ;
 		qs_sm span ;
 		qs_sm span_half ;
-		qs_sm gray_max ;
-		qs_sm curves ;
+        qs_sm curves ;
 	} poly;
 
 	// constants
@@ -155,10 +154,10 @@ typedef struct {
 	// useful data sharing same length
 	struct {
 		struct {
-			qs_sm num;
-			qs_sm size;
-			qs_sm sqrt_kN_mod_prime;
-			qs_sm root[2];
+            cint num;
+            qs_sm size;
+            qs_md sqrt_kN_mod_prime;
+            qs_sm root[2];
 		} *data;
 		qs_sm length;
 	} base;
@@ -168,11 +167,11 @@ typedef struct {
 		qs_sm *A_indexes;
 		struct {
 			cint B_terms;
-			qs_sm *A_inv_double_value_B_terms;
-			qs_sm A_over_prime_mod_prime;
-			qs_sm prime_index;
-			qs_md prime_squared ;
-		} *data;
+            cint A_over_prime_mod_prime;
+            cint prime_squared;
+            qs_sm *A_inv_double_value_B_terms;
+            qs_sm prime_index;
+        } *data;
 		struct {
 			qs_sm defined;
 			qs_sm subtract_one;
@@ -213,6 +212,17 @@ typedef struct {
 			qs_sm y_length;
 		} * snapshot ;
 	} lanczos;
+
+    // some temporary OpenSSL BIGNUMs for scratch calculations & calculation context
+    BIGNUM *bn1;
+    BIGNUM *bn2;
+    BIGNUM *bn3;
+    BIGNUM *bn4;
+    BIGNUM *bn5;
+    BIGNUM *bn6;
+    BIGNUM *bn7;
+    BIGNUM *bn8;
+    BN_CTX *ctx;
 
 } qs_sheet;
 
@@ -274,11 +284,11 @@ static inline void get_started_iteration(qs_sheet *);
 static inline void iteration_part_1(qs_sheet *, const cint *, cint *);
 static inline void iteration_part_2(qs_sheet *, const cint *, cint *);
 static inline void iteration_part_3(qs_sheet *, const cint *, const cint *);
-static inline qs_sm iteration_part_4(const qs_sheet *, qs_sm nth_curve, qs_sm **, cint *);
+static inline qs_md iteration_part_4(const qs_sheet *, const cint* nth_curve, qs_sm **, cint *);
 static inline void iteration_part_5(qs_sheet *, const cint *, const cint *);
 static inline void iteration_part_6(qs_sheet *, const cint *, const cint *, const cint *, cint *);
-static inline void iteration_part_7(qs_sheet *, qs_sm, const qs_sm *);
-static inline void iteration_part_8(qs_sheet *, qs_sm, const qs_sm *);
+static inline void iteration_part_7(qs_sheet*, const qs_md, const qs_sm*);
+static inline void iteration_part_8(qs_sheet*, const qs_md, const qs_sm*);
 static int qs_register_factor(qs_sheet *);
 static inline void register_relations(qs_sheet *, const cint *, const cint *, const cint *);
 static inline void register_relation_kind_1(qs_sheet *, const cint *, const qs_sm * const restrict [4]);

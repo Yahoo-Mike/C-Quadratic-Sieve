@@ -8,6 +8,7 @@
 
 #include "avl.c"            // the trees.
 #include "cint.c"           // the integers.
+#include "fac_bn.c"         // OpenSSL BIGNUM support
 #include "fac_headers.h"    // factor headers.
 #include "fac_utils.c"      // utilities and front-end.
 #include "fac_quadratic.c"  // quadratic sieve source.
@@ -24,6 +25,9 @@ static inline void fac_display_help(char *name);
 
 int main(int argc, char *argv[]){
 	cint N ;
+    struct timeval  tmStart, tmEnd;
+    gettimeofday(&tmStart, NULL);
+
 	fac_params config = {0};
 	char * n ; // the string to factor in base 10.
 	n = fac_fill_params(&config, argc, argv);
@@ -38,6 +42,13 @@ int main(int argc, char *argv[]){
 		free(N.mem); // release number memory.
 	} else
 		fputs("usage : qs [-h] [-s] [number]", stderr);
+
+    gettimeofday(&tmEnd, NULL);
+
+    printf("Total time = %f seconds\n",
+        (double)(tmEnd.tv_usec - tmStart.tv_usec) / 1000000 +
+        (double)(tmEnd.tv_sec  - tmStart.tv_sec));
+
 	return 0 ;
 }
 
