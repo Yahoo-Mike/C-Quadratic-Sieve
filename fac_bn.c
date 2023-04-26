@@ -94,7 +94,7 @@ static double BIG_log10(const BIGNUM *X)
     sprintf(stry, "0.%s", strx);
 
     int rc = sscanf(stry, "%lf", &d);
-    assert(rc == 0);
+    assert(rc != 0);
 
     OPENSSL_free(strx);
     free(stry);

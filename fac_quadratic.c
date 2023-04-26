@@ -61,15 +61,16 @@ int quadratic_sieve(fac_caller *caller) {
 
             cint_reinit(&i, 0);
             qs_md addi;
-            uint64_t tries = 1;
-            for (qs_sm *corr; (cint_compare(&i,&qs.poly.gray_max) < 0) && qs.n_bits != 1; cint_addi(&i,&qs.constants.ONE), ++qs.poly.curves, tries++) {
+            uint64_t tries = 0;
+            for (qs_sm *corr; (cint_compare(&i,&qs.poly.gray_max) < 0) && qs.n_bits != 1; cint_addi(&i,&qs.constants.ONE), ++qs.poly.curves) {
 
-                // give user some feedback
-                if ( (tries % 5000) == 0) {
-                    if ( (tries % 1000000) == 0) {
-                        printf("%d",++millions);
-                    } else
+                // give user some feedback for large N, where gray_max is O(2^74)
+                if ( (++tries % 5000) == 0) {
+                    if ( (tries % 1000000) == 0)
+                        break;  // that's enough...let's see if we lucked it...
+                    else
                         printf(".");
+
                 }
 
 				addi = iteration_part_4(&qs, &i, &corr, &qs.poly.B);							// calc nth-curve & choose new B value
@@ -697,30 +698,28 @@ void iteration_part_3(qs_sheet * qs, const cint * A, const cint * B) {
             BIGNUM *_a_mod_prime = qs->bn2;
             BIGNUM *_b_mod_prime = qs->bn3;
             BIGNUM *a_inv_double_value = qs->bn4;
-        
+            BIGNUM *sqrt_kN_mod_prime = qs->bn5;
+            BIGNUM *x = qs->bn6;
+            BIGNUM *y = qs->bn7;
+            BIGNUM *tmp = qs->bn8;
+
             cint2bn(_PRIME, &qs->base.data[i].num);
             BN_set_word(_a_mod_prime, a_mod_prime);
             BN_set_word(_b_mod_prime, b_mod_prime);
 
-            BIGNUM *sqrt_kN_mod_prime = qs->bn5;
-            BIGNUM *bnA = qs->bn6;
-            BIGNUM *bnB = qs->bn7;
-            BIGNUM *tmp = qs->bn8;
-
+            //qs_sm a_inv_double_value = modular_inverse(a_mod_prime, prime) << 1;
             BIGNUM *ok = BN_mod_inverse(tmp, _a_mod_prime, _PRIME, qs->ctx);
             if (ok == NULL) 
                 BN_zero(tmp); // no inverse
             BN_lshift(a_inv_double_value, tmp, 1);
 
-            BIGNUM *x = qs->bn6;
-            BIGNUM *y = qs->bn7;
             BN_copy(x, _PRIME);   //x = y = prime;
             BN_copy(y, _PRIME);
             BN_set_word(sqrt_kN_mod_prime, qs->base.data[i].sqrt_kN_mod_prime);
 
-            BN_add(x, x, sqrt_kN_mod_prime);    //x += qs->base.data[i].sqrt_kN_mod_prime;
-            BN_sub(y, y, sqrt_kN_mod_prime);    //y -= qs->base.data[i].sqrt_kN_mod_prime;
-            BN_sub(x, x, _b_mod_prime);          //x -= b_mod_prime;
+            BN_add(x, x, sqrt_kN_mod_prime);            //x += qs->base.data[i].sqrt_kN_mod_prime;
+            BN_sub(y, y, sqrt_kN_mod_prime);            //y -= qs->base.data[i].sqrt_kN_mod_prime;
+            BN_sub(x, x, _b_mod_prime);                 //x -= b_mod_prime;
 
             BN_rshift(tmp, a_inv_double_value, 1);
             BN_mul(x, x, tmp, qs->ctx);                 //x *= a_inv_double_value >> 1;
@@ -728,9 +727,9 @@ void iteration_part_3(qs_sheet * qs, const cint * A, const cint * B) {
 
             BN_set_word(tmp, qs->m.length_half);
             BN_add(x, x, tmp);                          //x += qs->m.length_half;
-            BN_mod(x, x, _PRIME, qs->ctx);               //x %= prime
+            BN_mod(x, x, _PRIME, qs->ctx);              //x %= prime
             BN_add(y, y, x);                            //y += x
-            BN_mod(y, y, _PRIME, qs->ctx);               //y %= prime
+            BN_mod(y, y, _PRIME, qs->ctx);              //y %= prime
 
             //qs->base.data[i].root[0] = (qs_sm)x;
             //qs->base.data[i].root[1] = (qs_sm)y;
@@ -756,10 +755,9 @@ void iteration_part_3(qs_sheet * qs, const cint * A, const cint * B) {
                 //const qs_md b_term = simple_cint_to_int(R);
                 //qs->s.data[j].A_inv_double_value_B_terms[i] = (qs_sm)(a_inv_double_value * b_term % prime)
                 BN_mul(tmp, a_inv_double_value, b_term, qs->ctx);
-                BN_mod(tmp2, tmp, _PRIME, qs->ctx);      // tmp2 = (a_inv_double_value * b_term) % PRIME
-                char *_tmp2 = BN_bn2dec(tmp2);
-                assert ( BN_num_bits(tmp2) <= 32 );  // if this fails, result will overflow (qs_sm)A_inv_double_value_B_terms[i]
-                char *_ainv = BN_bn2dec(tmp2);
+                BN_mod(tmp2, tmp, _PRIME, qs->ctx); // tmp2 = (a_inv_double_value * b_term) % PRIME
+                assert(BN_num_bits(tmp2) <= 32);    // if this fails, result will overflow (qs_sm)A_inv_double_value_B_terms[i]
+                char* _ainv = BN_bn2dec(tmp2);
                 qs->s.data[j].A_inv_double_value_B_terms[i] = atoi(_ainv);
                 OPENSSL_free(_ainv);
 		    }
@@ -831,14 +829,15 @@ void iteration_part_5(qs_sheet* qs, const cint* kN, const cint* B) {
         BIGNUM *bnprime  = qs->bn2;
         BIGNUM *bnbezout = qs->bn3;
         BIGNUM *bna_over = qs->bn4;
-        BIGNUM *bntmp    = qs->bn5;
+        BIGNUM *bnlength_half = qs->bn5;
+        BIGNUM *bntmp    = qs->bn6;
 
         cint2bn(bnprime,prime);
         cint2bn(bna_over, &qs->s.data[a].A_over_prime_mod_prime);
 
         // qs_md bezout = (rem_b % prime) * qs->s.data[a].A_over_prime_mod_prime;
         cint2bn(bntmp,R_B);
-        BN_mod(bntmp, bntmp, bnprime, qs->ctx); // bntmp = rem_b % prime
+        BN_mod(bntmp, bntmp, bnprime, qs->ctx);     // bntmp = rem_b % prime
         BN_mul(bnbezout,bntmp,bna_over,qs->ctx);
 
         //bezout = modular_inverse(bezout % prime, prime);
@@ -848,15 +847,14 @@ void iteration_part_5(qs_sheet* qs, const cint* kN, const cint* B) {
             BN_zero(bnbezout);  // no inverse
 
         // s = (qs_tmp)qs->m.length_half - s * bezout;
-        BIGNUM *bnlength_half = qs->bn6;
         BN_set_word(bnlength_half, qs->m.length_half);
         BN_mul(bntmp, bns, bnbezout, qs->ctx);  // bntmp = bns * bnbezout
-        BN_sub(bns, bnlength_half, bntmp);  //   bns = bnhalf_length - (bns*bnbezout)
+        BN_sub(bns, bnlength_half, bntmp);      // bns = bnhalf_length - (bns*bnbezout)
 
         // s %= prime;
         cint2bn(bnprime,prime);
         BN_mod(bntmp, bns, bnprime, qs->ctx);   // bntmp = bns % bnprime
-        BN_copy(bns,bntmp);                 // s = bntmp
+        BN_copy(bns,bntmp);                     // s = bntmp
 
         // s += (s < 0) * prime
         if (BN_is_negative(bns)) {          // if (bns < 0)
@@ -864,7 +862,7 @@ void iteration_part_5(qs_sheet* qs, const cint* kN, const cint* B) {
             BN_copy(bns, bntmp);            //   bns += bntmp
         }
 
-        assert( BN_num_bits(bns) <= 32 );  // fails if "s" will overflow (qs_sm)qs->base.data[i].root[0]
+        assert( BN_num_bits(bns) <= 32 );   // fails if "s" will overflow (qs_sm)qs->base.data[i].root[0]
 
         char *_s = BN_bn2dec(bns);
         qs_sm s = atoi(_s);
@@ -921,6 +919,7 @@ void iteration_part_7(qs_sheet * qs, const qs_md gray_addi, const qs_sm * restri
             BIGNUM *bnp     = qs->bn8;
 
             cint2bn(bnprime, &qs->base.data[i].num);
+            BN_set_word(msieve, (BN_ULONG)qs->m.sieve);
             qs_sm size = qs->base.data[i].size;
             BN_set_word(bncorr, corr[i]);
 
@@ -930,38 +929,22 @@ void iteration_part_7(qs_sheet * qs, const qs_md gray_addi, const qs_sm * restri
             else
                 BN_copy(bnco, bncorr);
 
-            BN_set_word(root0, qs->base.data[i].root[0]);
-            BN_set_word(root1, qs->base.data[i].root[1]);
-
             // qs->base.data[i].root[0] += co;
             // if (qs->base.data[i].root[0] >= prime)
             //     qs->base.data[i].root[0] -= prime;
+            BN_set_word(root0, qs->base.data[i].root[0]);
             BN_add(root0, root0, bnco);
             if (BN_cmp(root0, bnprime) >= 0)
                 BN_sub(root0, root0, bnprime);
-
-            // qs->base.data[i].root[1] += co;
-            // if (qs->base.data[i].root[1] >= prime)
-            //    qs->base.data[i].root[1] -= prime;
-            BN_add(root1, root1, bnco);
-            if (BN_cmp(root1, bnprime) >= 0)
-                BN_sub(root1, root1, bnprime);
-
-            assert( BN_num_bits(root0) <= 32 );  // if this fails, following assignment overflows
-            char *_root0 = BN_bn2dec(root0);
+            assert(BN_num_bits(root0) <= 32);  // if this fails, following assignment overflows
+            char* _root0 = BN_bn2dec(root0);
             qs->base.data[i].root[0] = atoi(_root0);
             OPENSSL_free(_root0);
 
-            assert(BN_num_bits(root1) <= 32);  // if this fails, following assignment overflows
-            char* _root1 = BN_bn2dec(root1);
-            qs->base.data[i].root[1] = atoi(_root1);
-            OPENSSL_free(_root1);
-
             // for(p_0 = qs->m.sieve + qs->base.data[i].root[0]; end > p_0; qs->m.flags[i] |= 1 << ((p_0 - qs->m.sieve) & 7), *p_0 += size, p_0 += prime);
-            BN_set_word(msieve, (BN_ULONG)qs->m.sieve);
-            BN_add(bntmp,msieve,root0);
-            assert( BN_num_bits(bntmp) <= 64 ); // if this fails, beyond here there be dragons (we can't address memory beyond 64-bit)
-            char *_bntmp = BN_bn2dec(bntmp);
+            BN_add(bntmp, msieve, root0);
+            assert(BN_num_bits(bntmp) <= 64); // if this fails, beyond here there be dragons (we can't address memory beyond 64-bit)
+            char* _bntmp = BN_bn2dec(bntmp);
             p_0 = (uint8_t*)strtoull(_bntmp, NULL, 10);
             OPENSSL_free(_bntmp);
 
@@ -970,34 +953,51 @@ void iteration_part_7(qs_sheet * qs, const qs_md gray_addi, const qs_sm * restri
                 *p_0 += size;
 
                 // it is very likely we will encounter dragons here.  If we do, we just give up.
-                BN_set_word(bnp,(BN_ULONG)p_0);
-                BN_add(bnp,bnp,bnprime); // p_0 += prime;
-                if ( BN_num_bits(bnp) > 64 )
+                BN_set_word(bnp, (BN_ULONG)p_0);
+                BN_add(bnp, bnp, bnprime); // p_0 += prime;
+                if (BN_num_bits(bnp) > 64)
                     break;  // dragons!  we can't address memory beyond 64-bit
                 char* _bnp = BN_bn2dec(bnp);
                 p_0 = (uint8_t*)strtoull(_bnp, NULL, 10);
                 OPENSSL_free(_bnp);
             }
 
-            //for (p_1 = qs->m.sieve + qs->base.data[i].root[1]; end > p_1; qs->m.flags[i] |= 1 << ((p_1 - qs->m.sieve) & 7), *p_1 += size, p_1 += prime);
-            BN_add(bntmp, msieve, root1);
-            assert(BN_num_bits(bntmp) <= 64); // if this fails, beyond here there be dragons (we can't address memory beyond 64-bit)
-            _bntmp = BN_bn2dec(bntmp);
-            p_1 = (uint8_t*)strtoull(_bntmp, NULL, 10);
-            OPENSSL_free(_bntmp);
+            //
+            // root[1] is a bit more complicated.
+            // root[1] was set to (qs_sm)-1 in iteration_part_5().
+            // this causes all kinds of out-of-bounds headaches - so we just won't sieve root[1] for very large integers
+            //
+            if (qs->base.data[i].root[1] != (qs_sm)-1) {
 
-            while (end > p_1) {
-                qs->m.flags[i] |= 1 << ((p_1 - qs->m.sieve) & 7);
-                *p_1 += size;
+                BN_set_word(root1, qs->base.data[i].root[1]);
+                BN_add(root1, root1, bnco);
+                if (BN_cmp(root1, bnprime) >= 0)
+                    BN_sub(root1, root1, bnprime);
+                assert(BN_num_bits(root1) <= 32);  // if this fails, following assignment overflows
+                char* _root1 = BN_bn2dec(root1);
+                qs->base.data[i].root[1] = atoi(_root1);
+                OPENSSL_free(_root1);
 
-                // it is very likely we will encounter dragons here.  If we do, we just give up.
-                BN_set_word(bnp, (BN_ULONG)p_1);
-                BN_add(bnp, bnp, bnprime); // p_1 += prime;
-                if (BN_num_bits(bnp) > 64)
-                    break;  // dragons!  we can't address memory beyond 64-bit
-                char* _bnp = BN_bn2dec(bnp);
-                p_1 = (uint8_t*)strtoull(_bnp, NULL, 10);
-                OPENSSL_free(_bnp);
+                // for(p_1 = qs->m.sieve + qs->base.data[i].root[1]; end > p_0; qs->m.flags[i] |= 1 << ((p_1 - qs->m.sieve) & 7), *p_1 += size, p_0 += prime);
+                BN_add(bntmp, msieve, root1);
+                assert(BN_num_bits(bntmp) <= 64); // if this fails, beyond here there be dragons (we can't address memory beyond 64-bit)
+                char *_bntmp = BN_bn2dec(bntmp);
+                p_1 = (uint8_t*)strtoull(_bntmp, NULL, 10);
+                OPENSSL_free(_bntmp);
+
+                while (end > p_1) {
+                    qs->m.flags[i] |= 1 << ((p_1 - qs->m.sieve) & 7);
+                    *p_1 += size;
+
+                    // it is very likely we will encounter dragons here.  If we do, we just give up.
+                    BN_set_word(bnp, (BN_ULONG)p_1);
+                    BN_add(bnp, bnp, bnprime); // p_1 += prime;
+                    if (BN_num_bits(bnp) > 64)
+                        break;  // dragons!  we can't address memory beyond 64-bit
+                    char* _bnp = BN_bn2dec(bnp);
+                    p_1 = (uint8_t*)strtoull(_bnp, NULL, 10);
+                    OPENSSL_free(_bnp);
+                }
             }
 
         } //endelse (very large prime)
