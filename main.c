@@ -20,7 +20,57 @@
 // - Original software goal was to factor 200-bit RSA in 30 seconds.
 // - "cint" allow us to see what is sufficient to reach the goal.
 
-static inline void fac_display_verbose(fac_cint **ans);
+static inline void fac_display_verbose(fac_cint** ans) {
+    for (int i = 0; i < 100; ++i)
+        putchar(' ');
+    putchar('\r');
+    char* str = fac_answer_to_string(ans);
+    puts(str);
+    free(str);
+}
+
+// OpenSSL library call to factorise a BIGNUM
+// IN: N - large integer to factorise
+// RETURN: ptr to BIGNUM prime factor (caller must free this BIGNUM with BN_free() when finished with it)
+//         NULL if no prime factors found or an error occurred
+BIGNUM *qs_factor(const BIGNUM *N) {
+
+    fac_params config = { 0 };
+    cint cN;
+    cint_init(&cN, BN_num_bits(N), 10); // init the number as a cint.
+    bn2cint(&cN, N);
+
+    fac_cint** answer = c_factor(&cN, &config); // execute the routine.
+
+    fac_display_verbose(answer); // print answer to screen
+
+    if (answer == 0 || answer[0] == 0) {
+        cint_free(&cN);
+        return NULL; // factorizer found no answer
+    }
+
+    // copy a prime factor to BIGNUM
+    BIGNUM *factor = BN_new();
+    BN_zero(factor);
+
+    // search answers for a prime factor
+    for (int i = 0; answer[i]; i++) {
+        if ( (answer[i]->power == 1) && (answer[i]->prime == 1) )
+            cint2bn(factor, &answer[i]->cint);
+    }
+
+    if (BN_is_zero(factor)) {
+        BN_free(factor);    // no prime factors found
+        factor = NULL;
+    }
+
+    cint_free(&cN);
+    return factor;
+}
+
+
+#ifdef BUILD_QS_EXE
+
 static inline void fac_display_help(char *name);
 
 int main(int argc, char *argv[]){
@@ -52,15 +102,6 @@ int main(int argc, char *argv[]){
 	return 0 ;
 }
 
-static inline void fac_display_verbose(fac_cint ** ans) {
-	for(int i = 0; i < 100; ++i)
-		putchar(' ');
-	putchar('\r');
-	char * str = fac_answer_to_string(ans);
-	puts(str);
-	free(str);
-}
-
 static inline void fac_display_help(char *name) {
 	char * str = 1 + strrchr(name, '/');
 	if (str < name) str = 1 + strrchr(name, '\\');
@@ -78,7 +119,7 @@ static inline void fac_display_help(char *name) {
 	printf("Bests in math with your factorizer...\n");
 	putchar('\n');
 }
-
+#endif
 // Development (Linux) done with gcc version 8.3.0 (Debian 8.3.0-6)
 // Development (Microsoft Windows) done with gcc version 11.2.0 (MinGW-W64 x86_64-ucrt-posix-seh)
 // In 2022, the common software speed is 1s for 170-bit RSA, 1 min for 230-bit, 10 min for 260-bit, 2 hours for 300-bit.
