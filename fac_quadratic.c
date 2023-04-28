@@ -66,11 +66,13 @@ int quadratic_sieve(fac_caller *caller) {
 
                 // give user some feedback for large N, where gray_max is O(2^74)
                 if ( (++tries % 5000) == 0) {
-                    if ( (tries % 1000000) == 0)
+                    if ((tries % 5000000) == 0)
                         break;  // that's enough...let's see if we lucked it...
+
+                    if ((tries % 1000000) == 0)
+                        printf("%d",(int)(tries/1000000));
                     else
                         printf(".");
-
                 }
 
 				addi = iteration_part_4(&qs, &i, &corr, &qs.poly.B);							// calc nth-curve & choose new B value
@@ -84,7 +86,7 @@ int quadratic_sieve(fac_caller *caller) {
 				register_relations(&qs, &qs.poly.A, &qs.poly.B, &qs.poly.C);					// analyse polynomial and register any relationships found
 			}
 
-            printf("I");    // user feedback - one loop of inner-loop complete
+            printf("i");    // user feedback - one loop of inner-loop complete
 
 		} while (inner_continuation_condition(&qs));
 
@@ -455,6 +457,9 @@ void preparation_part_6(qs_sheet* qs) {
     assert(i >= qs->poly.span);
     for (min = i - qs->poly.span_half, i *= i; i / min < qs->poly.span + min; --min);
     qs->poly.min = min;
+    char* _D = cint_to_string(&qs->poly.D, 10);
+    printf("Trying with D = %s  (bits=%u)\n", _D, qs->poly.d_bits);
+    free(_D);
 }
 
 void get_started_iteration(qs_sheet *qs) {
@@ -469,9 +474,17 @@ void get_started_iteration(qs_sheet *qs) {
 		}
 		qs->relations.length.now = i ;
 	}
+
+    if (qs->relations.length.now)
+        printf("[%u/%u]  (%u%%)\n", qs->relations.length.now, qs->relations.length.needs + 1000, qs->relations.length.now / (qs->relations.length.needs + 1000) * 100);
+
 	// D is randomized if algorithm remarks that no relation accumulates (the software tester didn't remove it)
-	if (qs->relations.length.prev == qs->relations.length.now && qs->poly.curves)
+	if (qs->relations.length.prev == qs->relations.length.now && qs->poly.curves) {
 		cint_random_bits(&qs->poly.D, qs->poly.d_bits);
+        char *_D = cint_to_string( &qs->poly.D, 10 );
+        printf( "Trying with new D = %s  (bits=%u)\n", _D, qs->poly.d_bits);
+        free(_D);
+    }
 	qs->relations.length.prev = qs->relations.length.now;
 }
 

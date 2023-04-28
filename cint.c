@@ -1,6 +1,10 @@
 #ifndef CINT_MASTER
 #define CINT_MASTER
 
+#ifdef _MSC_VER
+#define _CRT_RAND_S             // for Windows rand_s(), must be defined before #include <stdlib.h>
+#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -626,8 +630,15 @@ static void cint_random_bits(cint *num, size_t bits) {
 	uint64_t i = 0;
 	cint_erase(num);
 	for (; bits; ++num->end)
-		for (i = 0; bits && i < cint_exponent; ++i, --bits)
+		for (i = 0; bits && i < cint_exponent; ++i, --bits) {
+#ifdef _MSC_VER
+            unsigned int rando;
+            rand_s(&rando);
+            * num->end = *num->end << 1 | (rando & 1);
+#else
 			*num->end = *num->end << 1 | (rand() & 1);
+#endif
+        }
 	if (i) *(num->end - 1) |= (uint64_t)1 << (i - 1);
 }
 
